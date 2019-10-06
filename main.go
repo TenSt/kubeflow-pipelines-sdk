@@ -49,11 +49,12 @@ type runs struct {
 }
 
 type run struct {
+	ID                 string              `json:"id,omitempty"`
 	Name               string              `json:"name,omitempty"`
 	StorageState       string              `json:"storage_state,omitempty"` // STORAGESTATE_AVAILABLE (default) or STORAGESTATE_ARCHIVED
 	Description        string              `json:"description,omitemtpy"`
 	PipelineSpec       pipelineSpec        `json:"pipeline_spec,omitemtpy"`
-	ResourceReferences []resourceReference `json:"resource_refereneces,omitemtpy"`
+	ResourceReferences []resourceReference `json:"resource_references,omitemtpy"`
 	//output
 	CreatedAt   time.Time `json:"created_at,omitempty"`
 	ScheduledAt time.Time `json:"scheduled_at,omitempty"`
@@ -76,13 +77,24 @@ type resourceReference struct {
 }
 
 type resourceKey struct {
-	ResourceType string `json:"type,omitempty"` //UNKNOWN_RESOURCE_TYPE (default), EXPERIMENT, JOB
-	ID           string `json:"id,omitempty"`
+	Type string `json:"type,omitempty"` //UNKNOWN_RESOURCE_TYPE (default), EXPERIMENT, JOB
+	ID   string `json:"id,omitempty"`
 }
 
-const baseURL string = "http://188.40.161.63:8888/apis/v1beta1/"
-const url string = "http://188.40.161.63:8888/apis/v1beta1/pipelines/020356d7-a13c-41e2-8c35-c98e7c1ea65d"
-const pipelineID string = "d418cf89-1c1e-4879-b61d-512e06193abe"
+type runDetail struct {
+	Run             run             `json:"run,omitempty"`
+	PipelineRuntime pipelineRuntime `json:"pipeline_runtime,omitempty"`
+}
+
+type pipelineRuntime struct {
+	WorkflowManifest string `json:"workflow_manifest,omitempty"`
+}
+
+const baseURL string = "http://188.40.161.99:8888/apis/v1beta1/"
+const url string = "http://188.40.161.99:8888/apis/v1beta1/pipelines/020356d7-a13c-41e2-8c35-c98e7c1ea65d"
+const pipelineID string = "f761e123-3637-4b8d-bd28-82abfd253e49"
+const experimentID string = "04ccd65d-f6eb-47f8-ae0d-bddae719699c"
+const runID string = "4dfc6e6e-e5be-11e9-908e-fa163ed02a23"
 
 func main() {
 	// p := uploadPipeline("pipeline.yaml", "MNIST")
@@ -91,11 +103,14 @@ func main() {
 	// pipelines := getAllPipelines()
 	// fmt.Println(pipelines)
 
-	// mnistPipeline := getPipeline(pipelineID)
-	// fmt.Println(mnistPipeline)
+	mnistPipeline := getPipeline(pipelineID)
+	fmt.Println(mnistPipeline)
 
-	// e := getExperiment("71bb4de1-9ca1-4432-a09c-7332faf80058")
-	// fmt.Println(e)
+	// experiments := getAllExperiments()
+	// fmt.Println(experiments)
+
+	e := getExperiment(experimentID)
+	fmt.Println(e)
 
 	// allRuns := getAllRuns()
 	// fmt.Println(allRuns)
@@ -112,7 +127,7 @@ func main() {
 				},
 				{
 					Name:  "train-steps",
-					Value: "200",
+					Value: "50",
 				},
 				{
 					Name:  "learning-rate",
@@ -131,14 +146,22 @@ func main() {
 		ResourceReferences: []resourceReference{
 			{
 				Key: resourceKey{
-					ID:           "CHANGE",
-					ResourceType: "EXPERIMENT",
+					ID:   experimentID,
+					Type: "EXPERIMENT",
 				},
 				Relationship: "OWNER",
 			},
 		},
 	}
 	fmt.Println(r)
+
+	rDetail := createRun(r)
+	fmt.Printf("Name: %s", rDetail.Run.Name)
+
+	// rDetail := getRun(runID)
+	// fmt.Println(rDetail)
+
+	// _ = getRun(runID)
 }
 
 func getAllPipelines() pipelines {
@@ -367,9 +390,9 @@ func getAllRuns() runs {
 	return r
 }
 
-func createRun(r run) {
+func createRun(r run) runDetail {
 	url := baseURL + "runs"
-
+	var rDetail runDetail
 	// fmt.Println(url)
 
 	body, err := json.Marshal(r)
@@ -388,5 +411,36 @@ func createRun(r run) {
 		log.Fatalf("error reading from resp.Body: %s", err.Error())
 	}
 
-	fmt.Printf("\nResponse:\n%s", string(respBody))
+	// fmt.Printf("\nResponse:\n%s", string(respBody))
+
+	err = json.Unmarshal(respBody, &rDetail)
+	if err != nil {
+		log.Printf("\noutput: %v", string(respBody))
+		log.Fatalf("error unmarshaling: %s", err.Error())
+	}
+
+	return rDetail
+}
+
+func getRun(id string) runDetail {
+	var r runDetail
+	url := baseURL + "runs/" + id
+	resp, err := http.Get(url)
+	if err != nil {
+		log.Fatalf("Failed to send request to the backend: %s", err.Error())
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalf("error reading from resp.Body: %s", err.Error())
+	}
+	//fmt.Println(string(body))
+
+	err = json.Unmarshal(body, &r)
+	if err != nil {
+		log.Printf("\noutput: %v", string(body))
+		log.Fatalf("error unmarshaling: %s", err.Error())
+	}
+	return r
 }

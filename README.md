@@ -1,1 +1,1 @@
-# kubeflow-pipelines-actions
+# kubeflow-pipelines-sdk

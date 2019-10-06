@@ -1,9 +1,8 @@
-package main
+package sdk
 
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -13,48 +12,55 @@ import (
 	"time"
 )
 
-type pipelines struct {
-	Pipelines []pipeline `json:"pipelines"`
+// Pipelines describe a list of pipelines
+type Pipelines struct {
+	Pipelines []Pipeline `json:"pipelines"`
 	TotalSize int        `json:"total_size"`
 }
 
-type pipeline struct {
+// Pipeline describe a single pipeline
+type Pipeline struct {
 	ID          string      `json:"id,omitempty"`
 	CreatedAt   time.Time   `json:"created_at,omitempty"`
 	Name        string      `json:"name"`
 	Description string      `json:"description"`
-	Parameters  []parameter `json:"parameters,omitempty"`
+	Parameters  []Parameter `json:"parameters,omitempty"`
 }
 
-type parameter struct {
+// Parameter describe pipeline parameter
+type Parameter struct {
 	Name  string `json:"name"`
 	Value string `json:"value,omitempty"`
 }
 
-type experiments struct {
-	Experiments []experiment `json:"experiments"`
+// Experiments describe a list of experiments
+type Experiments struct {
+	Experiments []Experiment `json:"experiments"`
 	TotalSize   int          `json:"total_size"`
 }
 
-type experiment struct {
+// Experiment describe a single experiment
+type Experiment struct {
 	ID          string    `json:"id,omitempty"`
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
 	CreatedAt   time.Time `json:"created_at,omitempty"`
 }
 
-type runs struct {
-	Runs      []run `json:"runs"`
+// Runs describe a list of runs
+type Runs struct {
+	Runs      []Run `json:"runs"`
 	TotalSize int   `json:"total_size"`
 }
 
-type run struct {
+// Run describe a single run
+type Run struct {
 	ID                 string              `json:"id,omitempty"`
 	Name               string              `json:"name,omitempty"`
 	StorageState       string              `json:"storage_state,omitempty"` // STORAGESTATE_AVAILABLE (default) or STORAGESTATE_ARCHIVED
 	Description        string              `json:"description,omitemtpy"`
-	PipelineSpec       pipelineSpec        `json:"pipeline_spec,omitemtpy"`
-	ResourceReferences []resourceReference `json:"resource_references,omitemtpy"`
+	PipelineSpec       PipelineSpec        `json:"pipeline_spec,omitemtpy"`
+	ResourceReferences []ResourceReference `json:"resource_references,omitemtpy"`
 	//output
 	CreatedAt   time.Time `json:"created_at,omitempty"`
 	ScheduledAt time.Time `json:"scheduled_at,omitempty"`
@@ -64,109 +70,55 @@ type run struct {
 	Metrics     string    `json:"metrics,omitempty"` //CHANGE
 }
 
-type pipelineSpec struct {
+// PipelineSpec describe a single specification of pipeline
+type PipelineSpec struct {
 	PipelineID       string      `json:"pipeline_id,omitempty"`
 	WorkflowManifest string      `json:"workflow_manifest,omitempty"`
 	PipelineManifest string      `json:"pipeline_manifest,omitempty"`
-	Parameters       []parameter `json:"parameters,omitempty"`
+	Parameters       []Parameter `json:"parameters,omitempty"`
 }
 
-type resourceReference struct {
-	Key          resourceKey `json:"key,omitempty"`
+// ResourceReference describe a single reference to parent resource
+type ResourceReference struct {
+	Key          ResourceKey `json:"key,omitempty"`
 	Relationship string      `json:"relationship,omitempty"` //UNKNOWN_RELATIONSHIP (default), OWNER, CREATOR
 }
 
-type resourceKey struct {
+// ResourceKey describe a single key of a parent resource
+type ResourceKey struct {
 	Type string `json:"type,omitempty"` //UNKNOWN_RESOURCE_TYPE (default), EXPERIMENT, JOB
 	ID   string `json:"id,omitempty"`
 }
 
-type runDetail struct {
-	Run             run             `json:"run,omitempty"`
-	PipelineRuntime pipelineRuntime `json:"pipeline_runtime,omitempty"`
+// RunDetail describe an output details of a run
+type RunDetail struct {
+	Run             Run             `json:"run,omitempty"`
+	PipelineRuntime PipelineRuntime `json:"pipeline_runtime,omitempty"`
 }
 
-type pipelineRuntime struct {
+// PipelineRuntime describe a workflow manifest as an JSON string of a pipeline
+type PipelineRuntime struct {
 	WorkflowManifest string `json:"workflow_manifest,omitempty"`
 }
 
-const baseURL string = "http://188.40.161.99:8888/apis/v1beta1/"
-const url string = "http://188.40.161.99:8888/apis/v1beta1/pipelines/020356d7-a13c-41e2-8c35-c98e7c1ea65d"
-const pipelineID string = "f761e123-3637-4b8d-bd28-82abfd253e49"
-const experimentID string = "04ccd65d-f6eb-47f8-ae0d-bddae719699c"
-const runID string = "4dfc6e6e-e5be-11e9-908e-fa163ed02a23"
-
-func main() {
-	// p := uploadPipeline("pipeline.yaml", "MNIST")
-	// fmt.Printf("%s", p.Name)
-
-	// pipelines := getAllPipelines()
-	// fmt.Println(pipelines)
-
-	mnistPipeline := getPipeline(pipelineID)
-	fmt.Println(mnistPipeline)
-
-	// experiments := getAllExperiments()
-	// fmt.Println(experiments)
-
-	e := getExperiment(experimentID)
-	fmt.Println(e)
-
-	// allRuns := getAllRuns()
-	// fmt.Println(allRuns)
-
-	r := run{
-		Name:        "Test run from sdk",
-		Description: "Test run from sdk - description",
-		PipelineSpec: pipelineSpec{
-			PipelineID: pipelineID,
-			Parameters: []parameter{
-				{
-					Name:  "model-export-dir",
-					Value: "/mnt/export",
-				},
-				{
-					Name:  "train-steps",
-					Value: "50",
-				},
-				{
-					Name:  "learning-rate",
-					Value: "0.01",
-				},
-				{
-					Name:  "batch-size",
-					Value: "100",
-				},
-				{
-					Name:  "pvc-name",
-					Value: "local-storage",
-				},
-			},
-		},
-		ResourceReferences: []resourceReference{
-			{
-				Key: resourceKey{
-					ID:   experimentID,
-					Type: "EXPERIMENT",
-				},
-				Relationship: "OWNER",
-			},
-		},
-	}
-	fmt.Println(r)
-
-	rDetail := createRun(r)
-	fmt.Printf("Name: %s", rDetail.Run.Name)
-
-	// rDetail := getRun(runID)
-	// fmt.Println(rDetail)
-
-	// _ = getRun(runID)
+//KfPipelineClient is a client struct
+type KfPipelineClient struct {
+	BaseURL string `json:"baseurl"`
 }
 
-func getAllPipelines() pipelines {
-	var p pipelines
-	url := baseURL + "pipelines"
+// GetClient returns client with BaseURL
+// Please mind that "/apis/v1beta1/" will be added at the end of BaseURL
+func GetClient(url string) KfPipelineClient {
+	client := KfPipelineClient{
+		BaseURL: os.Getenv("KUBEFLOW_PIPELINE_API") + "/apis/v1beta1/",
+	}
+	return client
+}
+
+// GetAllPipelines will return all pipelines
+func (c *KfPipelineClient) GetAllPipelines() Pipelines {
+	var p Pipelines
+	url := c.BaseURL + "pipelines"
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Fatalf("Failed to send request to the backend: %s", err.Error())
@@ -186,9 +138,10 @@ func getAllPipelines() pipelines {
 	return p
 }
 
-func getPipeline(id string) pipeline {
-	var p pipeline
-	url := baseURL + "pipelines/" + id
+// GetPipeline will return pipeline based on provided ID
+func (c *KfPipelineClient) GetPipeline(id string) Pipeline {
+	var p Pipeline
+	url := c.BaseURL + "pipelines/" + id
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Fatalf("Failed to send request to the backend: %s", err.Error())
@@ -208,9 +161,10 @@ func getPipeline(id string) pipeline {
 	return p
 }
 
-func getAllExperiments() experiments {
-	var e experiments
-	url := baseURL + "experiments"
+// GetAllExperiments will return all experiments
+func (c *KfPipelineClient) GetAllExperiments() Experiments {
+	var e Experiments
+	url := c.BaseURL + "experiments"
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Fatalf("Failed to send request to the backend: %s", err.Error())
@@ -230,9 +184,10 @@ func getAllExperiments() experiments {
 	return e
 }
 
-func getExperiment(id string) experiment {
-	var e experiment
-	url := baseURL + "experiments/" + id
+// GetExperiment will return experiment based on ID
+func (c *KfPipelineClient) GetExperiment(id string) Experiment {
+	var e Experiment
+	url := c.BaseURL + "experiments/" + id
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Fatalf("Failed to send request to the backend: %s", err.Error())
@@ -252,9 +207,10 @@ func getExperiment(id string) experiment {
 	return e
 }
 
-func uploadPipeline(filename string, name string) pipeline {
-	var p pipeline
-	url := baseURL + "pipelines/upload" + "?name=" + name
+// UploadPipeline will upload pipeline using provided path to a file
+func (c *KfPipelineClient) UploadPipeline(filename string, name string) Pipeline {
+	var p Pipeline
+	url := c.BaseURL + "pipelines/upload" + "?name=" + name
 	bodyBuf := &bytes.Buffer{}
 	bodyWriter := multipart.NewWriter(bodyBuf)
 
@@ -300,8 +256,9 @@ func uploadPipeline(filename string, name string) pipeline {
 	return p
 }
 
-func deleteExperiment(id string) error {
-	url := baseURL + "experiments/" + id
+// DeleteExperiment will delete experiment based on ID
+func (c *KfPipelineClient) DeleteExperiment(id string) error {
+	url := c.BaseURL + "experiments/" + id
 	hc := http.Client{}
 	req, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
@@ -317,12 +274,13 @@ func deleteExperiment(id string) error {
 	return err
 }
 
-func createExperiment(name string, description string) experiment {
-	e := experiment{
+// CreateExperiment will create new experiment
+func (c *KfPipelineClient) CreateExperiment(name string, description string) Experiment {
+	e := Experiment{
 		Name:        name,
 		Description: description,
 	}
-	url := baseURL + "experiments"
+	url := c.BaseURL + "experiments"
 
 	body, err := json.Marshal(e)
 	if err != nil {
@@ -335,7 +293,7 @@ func createExperiment(name string, description string) experiment {
 	}
 	defer resp.Body.Close()
 
-	var newE experiment
+	var newE Experiment
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Fatalf("error reading from resp.Body: %s", err.Error())
@@ -350,8 +308,9 @@ func createExperiment(name string, description string) experiment {
 	return newE
 }
 
-func deletePipeline(id string) error {
-	url := baseURL + "pipelines/" + id
+// DeletePipeline will delete pipeline based on ID
+func (c *KfPipelineClient) DeletePipeline(id string) error {
+	url := c.BaseURL + "pipelines/" + id
 	hc := http.Client{}
 	req, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
@@ -367,9 +326,10 @@ func deletePipeline(id string) error {
 	return err
 }
 
-func getAllRuns() runs {
-	var r runs
-	url := baseURL + "runs"
+// GetAllRuns will return all runs
+func (c *KfPipelineClient) GetAllRuns() Runs {
+	var r Runs
+	url := c.BaseURL + "runs"
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Fatalf("Failed to send request to the backend: %s", err.Error())
@@ -390,9 +350,10 @@ func getAllRuns() runs {
 	return r
 }
 
-func createRun(r run) runDetail {
-	url := baseURL + "runs"
-	var rDetail runDetail
+// CreateRun will create new Run of a pipeline based on the provided Run struct and return RunDetail
+func (c *KfPipelineClient) CreateRun(r Run) RunDetail {
+	url := c.BaseURL + "runs"
+	var rDetail RunDetail
 	// fmt.Println(url)
 
 	body, err := json.Marshal(r)
@@ -422,9 +383,10 @@ func createRun(r run) runDetail {
 	return rDetail
 }
 
-func getRun(id string) runDetail {
-	var r runDetail
-	url := baseURL + "runs/" + id
+// GetRun return RunDetail based on ID
+func (c *KfPipelineClient) GetRun(id string) RunDetail {
+	var r RunDetail
+	url := c.BaseURL + "runs/" + id
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Fatalf("Failed to send request to the backend: %s", err.Error())

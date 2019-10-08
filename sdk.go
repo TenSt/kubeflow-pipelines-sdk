@@ -109,8 +109,12 @@ type KfPipelineClient struct {
 // GetClient returns client with BaseURL
 // Please mind that "/apis/v1beta1/" will be added at the end of BaseURL
 func GetClient(url string) KfPipelineClient {
+	baseURL := os.Getenv("KUBEFLOW_PIPELINE_API")
+	if baseURL == "" {
+		baseURL = url
+	}
 	client := KfPipelineClient{
-		BaseURL: os.Getenv("KUBEFLOW_PIPELINE_API") + "/apis/v1beta1/",
+		BaseURL: baseURL + "/apis/v1beta1/",
 	}
 	return client
 }
